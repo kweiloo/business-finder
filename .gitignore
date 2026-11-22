@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.business-finder/
+tests/fixtures/live/
+tests/e2e/__screens__/
+playwright-report/
+test-results/
+*.csv
+*.jsonl
+.env
+.env.*
+*key*.txt
+*token*.txt
+.DS_Store
+evals/trigger/results/

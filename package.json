@@ -1,0 +1,45 @@
+{
+  "name": "business-finder",
+  "version": "0.1.0",
+  "description": "Find businesses on Google Maps from a CLI, a local web UI or an AI coding agent.",
+  "license": "MIT",
+  "author": "kweiloo",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kweiloo/business-finder.git"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "business-finder": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "bun install --cwd web --frozen-lockfile && vitest run",
+    "typecheck": "tsc --noEmit",
+    "check:live": "bun scripts/check-live.ts",
+    "dev:serve": "bun --watch src/cli/main.ts serve --no-open --port 18080",
+    "dev:web": "bun run --cwd web dev",
+    "build:web": "bun install --cwd web --frozen-lockfile && bun run --cwd web build",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.8",
+    "hono": "^4.13.19",
+    "libphonenumber-js": "^1.13.16",
+    "ws": "^8.23.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.65.1",
+    "@types/node": "^20",
+    "@types/ws": "^8.18.2",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "note": "Plain requests a person might type into Codex. None names the skill. 'set' is 'dev' (the description may be written against these), 'heldout' (never used while writing the description), 'negative' (must not trigger) or 'link' (the repository link plus a task, with Business Finder not installed: must install, then search, in one session).",
+  "prompts": [
+    { "id": "T01", "set": "dev", "expect": true, "lang": "zh", "text": "帮我找马六甲的 event 公司" },
+    { "id": "T02", "set": "dev", "expect": true, "lang": "en", "text": "Find me wedding planners in Penang with their phone numbers" },
+    { "id": "T03", "set": "dev", "expect": true, "lang": "ms", "text": "Carikan saya senarai kedai bunga di Johor Bahru" },
+    { "id": "T04", "set": "dev", "expect": true, "lang": "zh", "text": "我想要新加坡做室内设计的公司名单和联系方式" },
+    { "id": "T05", "set": "dev", "expect": true, "lang": "en", "text": "Get me a list of coffee roasters in Bangkok I could sell to" },
+    { "id": "T06", "set": "dev", "expect": true, "lang": "en", "text": "I need contacts for printing companies in Shah Alam" },
+    { "id": "T07", "set": "dev", "expect": true, "lang": "ms", "text": "Tolong cari pembekal bahan binaan di Kuantan" },
+    { "id": "T08", "set": "dev", "expect": true, "lang": "ja", "text": "東京のケータリング会社を探して、連絡先も教えて" },
+    { "id": "H01", "set": "heldout", "expect": true, "lang": "zh", "text": "帮我列一下吉隆坡做企业礼品的公司，要电话" },
+    { "id": "H02", "set": "heldout", "expect": true, "lang": "ms", "text": "Senaraikan hotel di Langkawi beserta nombor telefon" },
+    { "id": "H03", "set": "heldout", "expect": true, "lang": "en", "text": "Can you pull together dental clinics in Austin, Texas for outreach?" },
+    { "id": "H04", "set": "heldout", "expect": true, "lang": "id", "text": "Cari distributor makanan ringan di Surabaya" },
+    { "id": "N01", "set": "negative", "expect": false, "lang": "zh", "text": "吉隆坡有什么好吃的肉骨茶推荐？" },
+    { "id": "N02", "set": "negative", "expect": false, "lang": "en", "text": "What time does IKEA Damansara close today?" },
+    { "id": "N03", "set": "negative", "expect": false, "lang": "en", "text": "What's the latest news on Malaysia's 2027 budget?" },
+    { "id": "N04", "set": "negative", "expect": false, "lang": "en", "text": "What is Business Finder?" },
+    { "id": "N05", "set": "negative", "expect": false, "lang": "en", "text": "Any tips for a 3-day trip to Penang?" },
+    { "id": "N06", "set": "negative", "expect": false, "lang": "ms", "text": "Macam mana nak tulis emel jualan yang bagus?" },
+    { "id": "L01", "set": "link", "expect": true, "lang": "zh", "text": "用 github.com/kweiloo/business-finder 帮我找马六甲的 event 公司" },
+    { "id": "L02", "set": "link", "expect": true, "lang": "en", "text": "Use github.com/kweiloo/business-finder to find printing companies in Ipoh" }
+  ]
+}

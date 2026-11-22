@@ -1,0 +1,120 @@
+@import "tailwindcss";
+@import "@fontsource-variable/inter";
+@import "@fontsource/source-serif-4/600.css";
+
+/* A document on paper: white page, a warm grey rail, hairlines, and ink as
+   the one accent. Dark mode follows the operating system, where the ink turns
+   light. The only other colour is WhatsApp's own green, on its logo. */
+:root {
+  --background: #ffffff;
+  --rail: #f7f6f3;
+  --surface: #ffffff;
+  --foreground: #1d1d1b;
+  --secondary: #55534e;
+  --muted: #6b6963;
+  --faint: #75736c;
+  --line: #efede9;
+  --line-strong: #dcd9d2;
+  --subtle: #ebe9e4;
+  --accent: #141413;
+  --accent-foreground: #ffffff;
+  /* Field outlines: 3.6:1 on white (WCAG 1.4.11). Rows keep the faint --line. */
+  --field: #8a877f;
+  /* Placeholders: 4.8:1 on white. */
+  --placeholder: #75736c;
+  /* A missing website or WhatsApp: 3.6:1 on white. */
+  --missing: #8a877f;
+  /* The icon tile behind a link. */
+  --tile: #f1f0ec;
+  /* WhatsApp's teal green (brand palette): 3.6:1 on the tile, 4.1:1 on white. */
+  --whatsapp: #128c7e;
+  --danger: #b42318;
+  --scrim: rgb(29 29 27 / 0.32);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #161615;
+    --rail: #1d1d1b;
+    --surface: #1d1d1b;
+    --foreground: #ecebe8;
+    --secondary: #c4c2bc;
+    --muted: #a3a099;
+    --faint: #8f8c85;
+    --line: #2b2a27;
+    --line-strong: #3a3935;
+    --subtle: #2b2a27;
+    --accent: #f4f4f2;
+    --accent-foreground: #161615;
+    --field: #8a877f;
+    --placeholder: #8f8c85;
+    --missing: #8a877f;
+    --tile: #2b2a27;
+    /* WhatsApp's own green: 7.2:1 on the dark tile. */
+    --whatsapp: #25d366;
+    --danger: #ff8a7a;
+    --scrim: rgb(0 0 0 / 0.55);
+  }
+}
+
+@theme inline {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Source Serif 4", ui-serif, Georgia, serif;
+  --color-background: var(--background);
+  --color-rail: var(--rail);
+  --color-surface: var(--surface);
+  --color-foreground: var(--foreground);
+  --color-secondary: var(--secondary);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-subtle: var(--subtle);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-field: var(--field);
+  --color-placeholder: var(--placeholder);
+  --color-missing: var(--missing);
+  --color-tile: var(--tile);
+  --color-whatsapp: var(--whatsapp);
+  --color-danger: var(--danger);
+  --color-scrim: var(--scrim);
+  /* Focus: an ink ring with a page-coloured gap, so it shows on white and around a black button alike. */
+  --color-ring: var(--foreground);
+  --animate-progress-slide: progress-slide 1.4s ease-in-out infinite;
+  --animate-sheet-in: sheet-in 200ms ease-out;
+  --animate-scrim-in: scrim-in 200ms ease-out;
+
+  @keyframes progress-slide {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(300%);
+    }
+  }
+  @keyframes sheet-in {
+    from {
+      transform: translateX(-100%);
+    }
+  }
+  @keyframes scrim-in {
+    from {
+      opacity: 0;
+    }
+  }
+}
+
+@layer base {
+  html {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  *,
+  ::before,
+  ::after {
+    border-color: var(--line);
+  }
+}
