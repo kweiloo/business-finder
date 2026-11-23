@@ -1,6 +1,6 @@
 {
   "name": "business-finder",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Find businesses on Google Maps from a CLI, a local web UI or an AI coding agent.",
   "license": "MIT",
   "author": "kweiloo",

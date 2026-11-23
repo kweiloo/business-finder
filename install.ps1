@@ -206,6 +206,24 @@ function Install-BusinessFinderFromZip {
     }
 }
 
+function Move-BusinessFinderReleaseDirectory {
+    param([string]$Source, [string]$Destination)
+    for ($attempt = 0; ; $attempt++) {
+        try {
+            Move-Item -LiteralPath $Source -Destination $Destination -ErrorAction Stop
+            return
+        } catch {
+            # File scanners can briefly hold newly extracted or stopped executables.
+            if ($attempt -ge 6 -or
+                ($_.Exception -isnot [IO.IOException] -and $_.Exception -isnot [UnauthorizedAccessException]) -or
+                -not (Test-Path -LiteralPath $Source) -or (Test-Path -LiteralPath $Destination)) {
+                throw
+            }
+            Start-Sleep -Milliseconds (100 * ($attempt + 1))
+        }
+    }
+}
+
 function Install-BusinessFinderRelease {
     param([string]$DataDir, [string]$LegacyDataDir, [string]$AppDir, [string]$PackagePath)
     $localRoot = Split-Path -Parent $DataDir
@@ -240,15 +258,19 @@ function Install-BusinessFinderRelease {
                 throw "The release package is missing $file."
             }
         }
-        Invoke-BusinessFinderQuiet -FilePath (Join-Path $newApp "runtime\node.exe") -ArgumentList @((Join-Path $newApp "dist\cli.js"), "--version")
+        # Run the probe from outside the app tree so a Windows executable
+        # handle cannot prevent the staged application directory from moving.
+        $probeNode = Join-Path $stage "probe-node.exe"
+        Copy-Item -LiteralPath (Join-Path $newApp "runtime\node.exe") -Destination $probeNode
+        Invoke-BusinessFinderQuiet -FilePath $probeNode -ArgumentList @((Join-Path $newApp "dist\cli.js"), "--version")
         Initialize-BusinessFinderData -DataDir $DataDir -LegacyDataDir $LegacyDataDir
         if (Test-Path -LiteralPath $AppDir) {
-            Move-Item -LiteralPath $AppDir -Destination $backup
+            Move-BusinessFinderReleaseDirectory -Source $AppDir -Destination $backup
         }
         try {
-            Move-Item -LiteralPath $newApp -Destination $AppDir
+            Move-BusinessFinderReleaseDirectory -Source $newApp -Destination $AppDir
         } catch {
-            if (Test-Path -LiteralPath $backup) { Move-Item -LiteralPath $backup -Destination $AppDir }
+            if (Test-Path -LiteralPath $backup) { Move-BusinessFinderReleaseDirectory -Source $backup -Destination $AppDir }
             throw
         }
         $installed = $true
