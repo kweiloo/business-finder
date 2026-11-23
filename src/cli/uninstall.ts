@@ -1,8 +1,10 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, lstatSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { rm } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
 import { createInterface } from "node:readline";
+import { setTimeout as delay } from "node:timers/promises";
 import { GEOCODE_CACHE_FILE } from "../core/geo/geocoder.js";
 import { DataDirWriteError, formatWriteError, isFsError } from "../core/errors.js";
 import {
@@ -170,6 +172,25 @@ export type UninstallOptions = {
   stopServer?: (dataDir: string) => Promise<boolean>;
 };
 
+async function removeAppDir(dir: string, platform: NodeJS.Platform): Promise<void> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      await rm(dir, { recursive: true, force: true });
+      return;
+    } catch (error) {
+      const { code, path: blockedPath } = error as NodeJS.ErrnoException;
+      // Windows can hold the bundled executable briefly after the server exits.
+      if (platform === "win32" && attempt < 6 &&
+          (code === "EBUSY" || code === "EACCES" || code === "ENOTEMPTY" || code === "EPERM")) {
+        await delay(100 * (attempt + 1));
+        continue;
+      }
+      if (isFsError(error)) throw new DataDirWriteError(formatWriteError(blockedPath ?? dir, error));
+      throw error;
+    }
+  }
+}
+
 /** Removes both Business Finder and legacy leadscout installs (app, shims, PATH, owned skills); keeps saved lists unless confirmed. */
 export async function uninstallBusinessFinder(opts: UninstallOptions): Promise<number> {
   const platform = opts.platform ?? process.platform;
@@ -211,6 +232,15 @@ export async function uninstallBusinessFinder(opts: UninstallOptions): Promise<n
     opts.out("Stopped running Business Finder server.");
   }
 
+  let removedApp = false;
+  for (const dir of [appDir, oldAppDir]) {
+    if (existsSync(dir)) {
+      await removeAppDir(dir, platform);
+      removedApp = true;
+    }
+  }
+  if (removedApp) opts.out("Removed Business Finder app.");
+
   let removedFromPath = false;
   if (opts.removeUserPath) {
     for (const dir of [binDir, oldBinDir]) {
@@ -241,17 +271,6 @@ export async function uninstallBusinessFinder(opts: UninstallOptions): Promise<n
   }
   if (removedShim) {
     opts.out("Removed command shim.");
-  }
-
-  let removedApp = false;
-  for (const dir of [appDir, oldAppDir]) {
-    if (existsSync(dir)) {
-      removeDir(dir, { recursive: true, force: true });
-      removedApp = true;
-    }
-  }
-  if (removedApp) {
-    opts.out("Removed Business Finder app.");
   }
 
   const removeSkills = (dirs: string[], label: string) => {
