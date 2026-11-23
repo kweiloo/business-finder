@@ -74,7 +74,9 @@ export type CheckMessage = { t: "step"; i: number; step: CheckStep } | { t: "lea
 /** How the checks ended: all of them did, or why they were stopped. */
 type Ending = "ended" | "stalled" | "deadline" | "finished_early" | "child_exited" | "cancelled";
 
-const CHILD_ENTRY = fileURLToPath(new URL("./checkChild.ts", import.meta.url));
+const packagedChild = fileURLToPath(new URL("./checkChild.js", import.meta.url));
+const hasPackagedChild = existsSync(packagedChild);
+const CHILD_ENTRY = hasPackagedChild ? packagedChild : fileURLToPath(new URL("./checkChild.ts", import.meta.url));
 /** How long a killed check process may take to be gone before the run goes on without waiting. */
 const EXIT_WAIT_MS = 5_000;
 
@@ -85,9 +87,9 @@ const OUTCOME: Partial<Record<FieldStatus, Exclude<keyof EnrichCounts, "toCheck"
   skipped_by_option: "skipped",
 };
 
-/** The Bun executable: this process when it runs on Bun, else `bun` on the PATH. */
-function bunPath(): string {
-  return process.versions.bun ? process.execPath : "bun";
+/** Releases use the current Node runtime. Source tests can use Bun on PATH. */
+function childRuntime(): string {
+  return hasPackagedChild || process.versions.bun ? process.execPath : "bun";
 }
 
 /**
@@ -99,8 +101,8 @@ function bunPath(): string {
  * neither counted nor reported, as in `enrichLeads`. No child is left
  * running when this returns.
  *
- * Without Bun on the PATH (a Node run), without the check script (a bundled
- * build) or with a caller's own fetcher, the checks run in this process
+ * If the child cannot start, the check script is missing, or the caller
+ * provides a custom fetcher, the checks run in this process
  * under the same deadline and stop rules, which hold unless a check starves
  * this process's event loop.
  */
@@ -269,7 +271,7 @@ async function inChild(
   stops: Stops,
   debug: DebugLog,
 ): Promise<{ ending: Ending | "unavailable"; stuck: number[] }> {
-  const child = spawn(bunPath(), [CHILD_ENTRY], { stdio: ["pipe", "pipe", "pipe"], windowsHide: true, env: process.env });
+  const child = spawn(childRuntime(), [CHILD_ENTRY], { stdio: ["pipe", "pipe", "pipe"], windowsHide: true, env: process.env });
   let heard = false;
   let spawnFailed = false;
   // `close` comes after the child's stdout is read to the end, so its last lines are never lost.

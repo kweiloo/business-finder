@@ -1,0 +1,11 @@
+{
+  "geocode": {
+    "lat": 2.19,
+    "lon": 102.25,
+    "countryCode": "MY"
+  },
+  "batches": [
+    "[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,[[null,[null,null,null,null,null,null,null,[\"https://example.test/\"],null,null,null,\"Fixture event planner\",null,[\"Event planner\"],null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,\"fixture-event-planner\"]]]]"
+  ],
+  "sitesDir": "."
+}

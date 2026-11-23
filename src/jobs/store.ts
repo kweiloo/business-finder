@@ -141,12 +141,22 @@ export function legacyDataDir(
 }
 
 /** `%LOCALAPPDATA%\business-finder` on Windows, `$XDG_DATA_HOME/business-finder` or `~/.local/share/business-finder` elsewhere. */
-export function defaultDataDir(
+export function installedDataDir(
   env: NodeJS.ProcessEnv = process.env,
   platform: NodeJS.Platform = process.platform,
   home: string = homedir(),
 ): string {
   return dataDirForName(DATA_DIR_NAME, env, platform, home);
+}
+
+/** Explicit data location for CLI and web UI runs, or the normal user data directory. */
+export function defaultDataDir(
+  env: NodeJS.ProcessEnv = process.env,
+  platform: NodeJS.Platform = process.platform,
+  home: string = homedir(),
+): string {
+  const override = env.BUSINESS_FINDER_DATA_DIR?.trim();
+  return override ? path.resolve(override) : installedDataDir(env, platform, home);
 }
 
 /** `<data dir>/jobs`: one folder per job. */
@@ -262,8 +272,10 @@ export async function migrateDataDir(opts: MigrateDataDirOptions = {}): Promise<
   const env = opts.env ?? process.env;
   const platform = opts.platform ?? process.platform;
   const home = opts.home ?? homedir();
+  // A workspace override must never move the user's existing default data.
+  if (env.BUSINESS_FINDER_DATA_DIR?.trim()) return { outcome: "none" };
   const oldDir = legacyDataDir(env, platform, home);
-  const newDir = defaultDataDir(env, platform, home);
+  const newDir = installedDataDir(env, platform, home);
 
   const oldExists = fs.existsSync(oldDir);
   const newExists = fs.existsSync(newDir);

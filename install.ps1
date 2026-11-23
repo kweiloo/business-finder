@@ -1,13 +1,14 @@
 # Business Finder installer for Windows 10/11 (Windows PowerShell 5.1).
 #
 #   irm https://raw.githubusercontent.com/kweiloo/business-finder/main/install.ps1 | iex
-#   powershell -ExecutionPolicy Bypass -File .\install.ps1 [-PathScope Process] [-RepoUrl <url>] [-Branch <name>] [-NoOpen]
+#   powershell -ExecutionPolicy Bypass -File .\install.ps1 [-PathScope Process] [-RepoUrl <url>] [-Branch <name>] [-PackagePath <zip>] [-NoOpen]
 #
 # Everything runs inside one script block, so under `irm | iex` the caller's
 # session keeps its own $ErrorActionPreference, variables and functions.
 # Settings that `iex` cannot pass as parameters come from the environment:
 #   BUSINESS_FINDER_PATH_SCOPE=Process  keep PATH changes to this process (tests)
 #   BUSINESS_FINDER_REPO_URL, BUSINESS_FINDER_BRANCH  install from another repository or branch
+#   BUSINESS_FINDER_PACKAGE_PATH  install a locally downloaded release ZIP
 #   BUSINESS_FINDER_NO_OPEN=1  do not open the browser at the end
 #   BUSINESS_FINDER_USER_ENV_KEY  HKCU registry key that holds the user PATH (tests; default Environment)
 #   BUSINESS_FINDER_NO_EXIT=1  under `irm | iex`, leave the exit code in $LASTEXITCODE instead of calling exit (tests)
@@ -21,6 +22,7 @@ param(
     [string]$PathScope = "User",
     [string]$RepoUrl = "",
     [string]$Branch = "",
+    [string]$PackagePath = "",
     [switch]$NoOpen
 )
 
@@ -35,6 +37,7 @@ $hasExplicitRepo = (-not [string]::IsNullOrWhiteSpace($RepoUrl)) -or (-not [stri
 if ($env:BUSINESS_FINDER_PATH_SCOPE -eq "Process") { $PathScope = "Process" }
 if (-not $RepoUrl) { $RepoUrl = if ($env:BUSINESS_FINDER_REPO_URL) { $env:BUSINESS_FINDER_REPO_URL } else { $DefaultRepoUrl } }
 if (-not $Branch) { $Branch = if ($env:BUSINESS_FINDER_BRANCH) { $env:BUSINESS_FINDER_BRANCH } else { "main" } }
+if (-not $PackagePath) { $PackagePath = $env:BUSINESS_FINDER_PACKAGE_PATH }
 if ($env:BUSINESS_FINDER_NO_OPEN -eq "1") { $NoOpen = [switch]$true }
 
 try {
@@ -203,6 +206,63 @@ function Install-BusinessFinderFromZip {
     }
 }
 
+function Install-BusinessFinderRelease {
+    param([string]$DataDir, [string]$LegacyDataDir, [string]$AppDir, [string]$PackagePath)
+    $localRoot = Split-Path -Parent $DataDir
+    $stage = Join-Path $localRoot ("business-finder-install-" + [Guid]::NewGuid().ToString("N"))
+    $backup = Join-Path $stage "previous"
+    New-Item -ItemType Directory -Force -Path $stage | Out-Null
+    try {
+        if ($PackagePath) {
+            $zip = (Resolve-Path -LiteralPath $PackagePath).Path
+        } else {
+            $url = "https://github.com/$RepoSlug/releases/latest/download/business-finder-windows-x64.zip"
+            $zip = Join-Path $stage "release.zip"
+            $hashFile = Join-Path $stage "release.sha256"
+            $previousProgress = $ProgressPreference
+            try {
+                $ProgressPreference = "SilentlyContinue"
+                Invoke-WebRequest -UseBasicParsing -Uri "$url.sha256" -OutFile $hashFile
+                Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $zip
+            } finally {
+                $ProgressPreference = $previousProgress
+            }
+            $expected = (Get-Content -LiteralPath $hashFile -Raw).Trim()
+            if ($expected -notmatch '^[a-fA-F0-9]{64}$' -or (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash -ine $expected) {
+                throw "Release download did not match its SHA-256 checksum."
+            }
+        }
+        $unpacked = Join-Path $stage "unpacked"
+        Expand-Archive -LiteralPath $zip -DestinationPath $unpacked
+        $newApp = Join-Path $unpacked "app"
+        foreach ($file in @("runtime\node.exe", "dist\cli.js", "dist\checkChild.js", "dist\web\index.html", "package.json", "uninstall.ps1", "skills\business-finder\SKILL.md")) {
+            if (-not (Test-Path -LiteralPath (Join-Path $newApp $file) -PathType Leaf)) {
+                throw "The release package is missing $file."
+            }
+        }
+        Invoke-BusinessFinderQuiet -FilePath (Join-Path $newApp "runtime\node.exe") -ArgumentList @((Join-Path $newApp "dist\cli.js"), "--version")
+        Initialize-BusinessFinderData -DataDir $DataDir -LegacyDataDir $LegacyDataDir
+        if (Test-Path -LiteralPath $AppDir) {
+            Move-Item -LiteralPath $AppDir -Destination $backup
+        }
+        try {
+            Move-Item -LiteralPath $newApp -Destination $AppDir
+        } catch {
+            if (Test-Path -LiteralPath $backup) { Move-Item -LiteralPath $backup -Destination $AppDir }
+            throw
+        }
+        $installed = $true
+    } finally {
+        $resolvedStage = (Resolve-Path -LiteralPath $stage).Path
+        $resolvedRoot = (Resolve-Path -LiteralPath $localRoot).Path
+        # Keep the backup if restoring it failed.
+        if (($installed -or -not (Test-Path -LiteralPath $backup)) -and
+            (Split-Path -Parent $resolvedStage) -eq $resolvedRoot -and (Split-Path -Leaf $resolvedStage) -like "business-finder-install-*") {
+            Remove-Item -LiteralPath $resolvedStage -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
 function Stop-BusinessFinderServer {
     # Stops the running `business-finder serve` for this data folder, only after its
     # health route confirms the recorded process id. Returns $true if one was stopped.
@@ -223,6 +283,20 @@ function Stop-BusinessFinderServer {
     } catch {
         return $false
     }
+}
+
+function Initialize-BusinessFinderData {
+    param([string]$DataDir, [string]$LegacyDataDir)
+    $stoppedLegacy = Stop-BusinessFinderServer -DataDir $legacyDataDir
+    $stoppedCurrent = Stop-BusinessFinderServer -DataDir $dataDir
+    if ($stoppedLegacy -or $stoppedCurrent) {
+        Write-Output "Stopped the Business Finder that was running, so it can be updated."
+    }
+
+    if ((Test-Path -LiteralPath $legacyDataDir) -and -not (Test-Path -LiteralPath $dataDir)) {
+        Move-Item -LiteralPath $legacyDataDir -Destination $dataDir
+    }
+    New-Item -ItemType Directory -Force -Path $dataDir | Out-Null
 }
 
 function Copy-BusinessFinderSource {
@@ -302,6 +376,30 @@ function Write-BusinessFinderShim {
     [System.IO.File]::WriteAllText($Path, $content, [System.Text.Encoding]::ASCII)
 }
 
+function Write-BusinessFinderReleaseShim {
+    param([string]$Path, [string]$AliasedFrom = "")
+    $lines = @(
+        '@echo off',
+        'setlocal DisableDelayedExpansion',
+        'set "BUSINESS_FINDER_APP=%~dp0..\app"'
+    )
+    if ($AliasedFrom) {
+        $lines += "(echo $AliasedFrom is now called business-finder) 1>&2"
+    }
+    $lines += @(
+        'if not exist "%BUSINESS_FINDER_APP%\runtime\node.exe" (',
+        '  echo Business Finder runtime is missing. Re-run the installer. >&2',
+        '  exit /b 2',
+        ')',
+        'if /i "%~1"=="uninstall" goto uninstall',
+        '(goto) 2>nul & "%BUSINESS_FINDER_APP%\runtime\node.exe" "%BUSINESS_FINDER_APP%\dist\cli.js" %*',
+        ':uninstall',
+        'shift',
+        '(goto) 2>nul & "%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "%BUSINESS_FINDER_APP%\uninstall.ps1" %1 %2 %3 %4 %5 %6 %7 %8 %9'
+    )
+    [System.IO.File]::WriteAllText($Path, ($lines -join [Environment]::NewLine) + [Environment]::NewLine, [System.Text.Encoding]::ASCII)
+}
+
 function Invoke-BusinessFinderInstall {
     param(
         [Parameter(Mandatory)][ValidateSet("User", "Process")][string]$PathScope,
@@ -309,6 +407,7 @@ function Invoke-BusinessFinderInstall {
         [Parameter(Mandatory)][string]$Branch,
         [switch]$NoOpen,
         [string]$SourceDir = "",
+        [string]$PackagePath = "",
         [switch]$ExplicitRepo,
         # Step names the failure message uses to pick its hint.
         [Parameter(Mandatory)][hashtable]$State
@@ -321,71 +420,8 @@ function Invoke-BusinessFinderInstall {
     $appDir = Join-Path $dataDir "app"
     $binDir = Join-Path $dataDir "bin"
     $legacyBinDir = Join-Path $legacyDataDir "bin"
-    $bunRoot = if ($env:BUN_INSTALL) { $env:BUN_INSTALL } else { Join-Path $userHome ".bun" }
-    $bunBin = Join-Path $bunRoot "bin"
-    $bunAtDefault = Join-Path $bunBin "bun.exe"
-
-    # 1. Bun
-    $State.Step = "bun"
-    $bunCmd = Get-Command bun -ErrorAction SilentlyContinue
-    $bunExe = $null
-    if ($bunCmd) {
-        $bunExe = $bunCmd.Source
-        Write-Output "Checking for Bun... ready"
-    } elseif (Test-Path $bunAtDefault) {
-        $bunExe = $bunAtDefault
-        $env:PATH = Add-BusinessFinderPathEntry -PathValue $env:PATH -Entry $bunBin
-        Write-Output "Checking for Bun... ready"
-    } else {
-        Write-Output "Checking for Bun... installing it (about 1 minute)"
-        $env:BUN_INSTALL = $bunRoot
-        $bunScript = Invoke-RestMethod -Uri "https://bun.sh/install.ps1"
-        $bunBlock = [scriptblock]::Create($bunScript)
-        $prevProg = $ProgressPreference
-        $prevWarn = $WarningPreference
-        $prevPath = $env:PATH
-        try {
-            $ProgressPreference = "SilentlyContinue"
-            $WarningPreference = "SilentlyContinue"
-            if ($PathScope -eq "Process") {
-                & $bunBlock -NoPathUpdate -NoRegisterInstallation -NoCompletions -DownloadWithoutCurl | Out-Null
-            } else {
-                & $bunBlock -DownloadWithoutCurl | Out-Null
-            }
-        } finally {
-            $env:PATH = $prevPath
-            $ProgressPreference = $prevProg
-            $WarningPreference = $prevWarn
-        }
-        $env:PATH = Add-BusinessFinderPathEntry -PathValue $env:PATH -Entry $bunBin
-        if (Test-Path $bunAtDefault) {
-            $bunExe = $bunAtDefault
-        } else {
-            $bunAfter = Get-Command bun -ErrorAction SilentlyContinue
-            if ($bunAfter) { $bunExe = $bunAfter.Source }
-        }
-        if (-not $bunExe) {
-            throw "Bun finished installing, but bun.exe could not be found."
-        }
-    }
-
-    $State.Step = "download"
-    # 2. Stop any running server and migrate legacy data folder before touching app/bin
-    $stoppedLegacy = Stop-BusinessFinderServer -DataDir $legacyDataDir
-    $stoppedCurrent = Stop-BusinessFinderServer -DataDir $dataDir
-    if ($stoppedLegacy -or $stoppedCurrent) {
-        Write-Output "Stopped the Business Finder that was running, so it can be updated."
-    }
-
-    if ((Test-Path -LiteralPath $legacyDataDir) -and -not (Test-Path -LiteralPath $dataDir)) {
-        Move-Item -LiteralPath $legacyDataDir -Destination $dataDir
-    }
-    New-Item -ItemType Directory -Force -Path $dataDir | Out-Null
-
-    $gitCmd = Get-Command git -ErrorAction SilentlyContinue
-    $hasGitRepo = Test-Path (Join-Path $appDir ".git")
     $useUnzippedSource = $false
-    if (-not $ExplicitRepo -and $SourceDir) {
+    if (-not $ExplicitRepo -and -not $PackagePath -and $SourceDir) {
         $hasAppEntry = (Test-Path (Join-Path $SourceDir "package.json")) -and (Test-Path (Join-Path $SourceDir "src\cli\main.ts"))
         $sourceHasGit = Test-Path (Join-Path $SourceDir ".git")
         if ($hasAppEntry -and -not $sourceHasGit) {
@@ -396,33 +432,98 @@ function Invoke-BusinessFinderInstall {
             }
         }
     }
-    if ($useUnzippedSource) {
-        Write-Output "Copying Business Finder from this folder..."
-        Copy-BusinessFinderSource -SourceDir $SourceDir -AppDir $appDir
-    } elseif ($gitCmd -and $hasGitRepo) {
-        Write-Output "Updating Business Finder..."
-        Invoke-BusinessFinderQuiet -FilePath $gitCmd.Source -ArgumentList @("-C", $appDir, "pull", "--ff-only")
-    } elseif ($gitCmd) {
-        Write-Output "Downloading Business Finder..."
-        if (Test-Path $appDir) {
-            Remove-Item -Path $appDir -Recurse -Force
-        }
-        Invoke-BusinessFinderQuiet -FilePath $gitCmd.Source -ArgumentList @("clone", "--branch", $Branch, "--single-branch", $RepoUrl, $appDir)
-    } else {
-        if (Test-Path $appDir) {
-            Write-Output "Updating Business Finder..."
+    $fromSource = -not $PackagePath -and ($ExplicitRepo -or $useUnzippedSource)
+    if ($fromSource) {
+        $bunRoot = if ($env:BUN_INSTALL) { $env:BUN_INSTALL } else { Join-Path $userHome ".bun" }
+        $bunBin = Join-Path $bunRoot "bin"
+        $bunAtDefault = Join-Path $bunBin "bun.exe"
+
+        # 1. Bun
+        $State.Step = "bun"
+        $bunCmd = Get-Command bun -ErrorAction SilentlyContinue
+        $bunExe = $null
+        if ($bunCmd) {
+            $bunExe = $bunCmd.Source
+            Write-Output "Checking for Bun... ready"
+        } elseif (Test-Path $bunAtDefault) {
+            $bunExe = $bunAtDefault
+            $env:PATH = Add-BusinessFinderPathEntry -PathValue $env:PATH -Entry $bunBin
+            Write-Output "Checking for Bun... ready"
         } else {
-            Write-Output "Downloading Business Finder..."
+            Write-Output "Checking for Bun... installing it (about 1 minute)"
+            $env:BUN_INSTALL = $bunRoot
+            $bunScript = Invoke-RestMethod -Uri "https://bun.sh/install.ps1"
+            $bunBlock = [scriptblock]::Create($bunScript)
+            $prevProg = $ProgressPreference
+            $prevWarn = $WarningPreference
+            $prevPath = $env:PATH
+            try {
+                $ProgressPreference = "SilentlyContinue"
+                $WarningPreference = "SilentlyContinue"
+                if ($PathScope -eq "Process") {
+                    & $bunBlock -NoPathUpdate -NoRegisterInstallation -NoCompletions -DownloadWithoutCurl | Out-Null
+                } else {
+                    & $bunBlock -DownloadWithoutCurl | Out-Null
+                }
+            } finally {
+                $env:PATH = $prevPath
+                $ProgressPreference = $prevProg
+                $WarningPreference = $prevWarn
+            }
+            $env:PATH = Add-BusinessFinderPathEntry -PathValue $env:PATH -Entry $bunBin
+            if (Test-Path $bunAtDefault) {
+                $bunExe = $bunAtDefault
+            } else {
+                $bunAfter = Get-Command bun -ErrorAction SilentlyContinue
+                if ($bunAfter) { $bunExe = $bunAfter.Source }
+            }
+            if (-not $bunExe) {
+                throw "Bun finished installing, but bun.exe could not be found."
+            }
         }
-        $zipUrl = Get-BusinessFinderZipUrl -Url $RepoUrl -BranchName $Branch
-        Install-BusinessFinderFromZip -ZipUrl $zipUrl -AppDir $appDir
     }
 
-    # 3. Install dependencies and build web UI
-    $State.Step = "build"
-    Write-Output "Installing dependencies and building the app (about 1 minute)..."
-    Invoke-BusinessFinderQuiet -FilePath $bunExe -ArgumentList @("install", "--frozen-lockfile") -WorkingDirectory $appDir
-    Invoke-BusinessFinderQuiet -FilePath $bunExe -ArgumentList @("run", "build:web") -WorkingDirectory $appDir
+    $State.Step = "download"
+    if (-not $fromSource) {
+        Write-Output "Installing the Business Finder release..."
+        if ($PackagePath) { $State.Step = "package" }
+        Install-BusinessFinderRelease -DataDir $dataDir -LegacyDataDir $legacyDataDir -AppDir $appDir -PackagePath $PackagePath
+        $runtimeExe = Join-Path $appDir "runtime\node.exe"
+        $cliEntry = Join-Path $appDir "dist\cli.js"
+    } else {
+        Initialize-BusinessFinderData -DataDir $dataDir -LegacyDataDir $legacyDataDir
+        $gitCmd = Get-Command git -ErrorAction SilentlyContinue
+        $hasGitRepo = Test-Path (Join-Path $appDir ".git")
+        if ($useUnzippedSource) {
+            Write-Output "Copying Business Finder from this folder..."
+            Copy-BusinessFinderSource -SourceDir $SourceDir -AppDir $appDir
+        } elseif ($gitCmd -and $hasGitRepo) {
+            Write-Output "Updating Business Finder..."
+            Invoke-BusinessFinderQuiet -FilePath $gitCmd.Source -ArgumentList @("-C", $appDir, "pull", "--ff-only")
+        } elseif ($gitCmd) {
+            Write-Output "Downloading Business Finder..."
+            if (Test-Path $appDir) {
+                Remove-Item -Path $appDir -Recurse -Force
+            }
+            Invoke-BusinessFinderQuiet -FilePath $gitCmd.Source -ArgumentList @("clone", "--branch", $Branch, "--single-branch", $RepoUrl, $appDir)
+        } else {
+            if (Test-Path $appDir) {
+                Write-Output "Updating Business Finder..."
+            } else {
+                Write-Output "Downloading Business Finder..."
+            }
+            $zipUrl = Get-BusinessFinderZipUrl -Url $RepoUrl -BranchName $Branch
+            Install-BusinessFinderFromZip -ZipUrl $zipUrl -AppDir $appDir
+        }
+
+        # 3. Install dependencies and build web UI
+        $State.Step = "build"
+        Write-Output "Installing dependencies and building the app (about 1 minute)..."
+        Invoke-BusinessFinderQuiet -FilePath $bunExe -ArgumentList @("install", "--frozen-lockfile") -WorkingDirectory $appDir
+        Invoke-BusinessFinderQuiet -FilePath $bunExe -ArgumentList @("run", "build:web") -WorkingDirectory $appDir
+        $runtimeExe = $bunExe
+        $cliEntry = Join-Path $appDir "src\cli\main.ts"
+    }
 
     # 4. Command shims (`business-finder` + `leadscout` alias) and PATH
     $State.Step = "command"
@@ -430,8 +531,13 @@ function Invoke-BusinessFinderInstall {
     New-Item -ItemType Directory -Force -Path $binDir | Out-Null
     $shimPath = Join-Path $binDir "business-finder.cmd"
     $aliasShimPath = Join-Path $binDir "leadscout.cmd"
-    Write-BusinessFinderShim -Path $shimPath -BunExe $bunExe
-    Write-BusinessFinderShim -Path $aliasShimPath -BunExe $bunExe -AliasedFrom "leadscout"
+    if ($fromSource) {
+        Write-BusinessFinderShim -Path $shimPath -BunExe $bunExe
+        Write-BusinessFinderShim -Path $aliasShimPath -BunExe $bunExe -AliasedFrom "leadscout"
+    } else {
+        Write-BusinessFinderReleaseShim -Path $shimPath
+        Write-BusinessFinderReleaseShim -Path $aliasShimPath -AliasedFrom "leadscout"
+    }
 
     $env:PATH = Remove-BusinessFinderPathEntry -PathValue $env:PATH -Entry $legacyBinDir
     $env:PATH = Add-BusinessFinderPathEntry -PathValue $env:PATH -Entry $binDir
@@ -470,14 +576,17 @@ function Invoke-BusinessFinderInstall {
     }
     if ($docCode -ne 0) {
         $docOut | ForEach-Object { Write-Output "$_" }
-        Write-Output "Business Finder is installed, but it needs Microsoft Edge or Google Chrome to search. Install one of them, then type business-finder in a terminal."
+        if (-not $fromSource -and -not ($docOut -match "Edge|Chrome|browser")) {
+            Write-Output "Business Finder is installed, but its check failed. Run business-finder doctor in a regular PowerShell window."
+        } else {
+            Write-Output "Business Finder is installed, but it needs Microsoft Edge or Google Chrome to search. Install one of them, then type business-finder in a terminal."
+        }
         $State.ExitCode = 2
         return
     }
 
     # 7. Start business-finder serve in the background and report its real URL
     Write-Output "Starting Business Finder..."
-    $mainTs = Join-Path $appDir "src\cli\main.ts"
     $serverOutLog = Join-Path $dataDir "server.out.log"
     $serverErrLog = Join-Path $dataDir "server.err.log"
     $serverJsonPath = Join-Path $dataDir "server.json"
@@ -486,7 +595,7 @@ function Invoke-BusinessFinderInstall {
     # the caller's stdout pipe open, so a piped `install.ps1 | ...` never reaches EOF.
     # /s strips only the outer quotes around the whole command line.
     $noOpenArg = if ($NoOpen) { " --no-open" } else { "" }
-    $serveLine = "`"$bunExe`" `"$mainTs`" serve$noOpenArg > `"$serverOutLog`" 2> `"$serverErrLog`""
+    $serveLine = "`"$runtimeExe`" `"$cliEntry`" serve$noOpenArg > `"$serverOutLog`" 2> `"$serverErrLog`""
     $cmdExe = if ($env:ComSpec) { $env:ComSpec } else { Join-Path $env:SystemRoot "System32\cmd.exe" }
     $startedAt = [DateTime]::UtcNow
     $proc = Start-Process -FilePath $cmdExe -ArgumentList "/d /s /c `"$serveLine`"" -WorkingDirectory $userHome -WindowStyle Hidden -PassThru
@@ -565,11 +674,14 @@ function Test-BusinessFinderInteractiveHost {
 # `exit`, except under `irm | iex` in a window a person types into, where exit
 # would close that window; there it is left in $LASTEXITCODE.
 $state = @{ Step = "start"; ExitCode = 0 }
+$previousDataDir = $env:BUSINESS_FINDER_DATA_DIR
 try {
-    Invoke-BusinessFinderInstall -PathScope $PathScope -RepoUrl $RepoUrl -Branch $Branch -NoOpen:$NoOpen -SourceDir $PSScriptRoot -ExplicitRepo:$hasExplicitRepo -State $state
+    $env:BUSINESS_FINDER_DATA_DIR = $null
+    Invoke-BusinessFinderInstall -PathScope $PathScope -RepoUrl $RepoUrl -Branch $Branch -NoOpen:$NoOpen -SourceDir $PSScriptRoot -PackagePath $PackagePath -ExplicitRepo:$hasExplicitRepo -State $state
 } catch {
     $hint = switch ($state.Step) {
         "bun" { "Bun could not be downloaded. Check your internet connection." }
+        "package" { "Use an intact Business Finder Windows ZIP from GitHub Releases." }
         "download" { "Business Finder could not be downloaded. Check your internet connection." }
         "build" { "Setting up Business Finder's files failed; the lines above say why. If they mention the network, check your internet connection." }
         "start" { "Business Finder did not start. Type business-finder doctor in a new window to see what is missing." }
@@ -580,6 +692,8 @@ try {
     if ($hint) { Write-Output $hint }
     Write-Output "Run the same install command again. Your saved lists are not affected."
     $state.ExitCode = 1
+} finally {
+    $env:BUSINESS_FINDER_DATA_DIR = $previousDataDir
 }
 if ($state.ExitCode -ne 0) {
     $global:LASTEXITCODE = $state.ExitCode

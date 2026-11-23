@@ -7,7 +7,7 @@ import { GEOCODE_CACHE_FILE } from "../core/geo/geocoder.js";
 import { DataDirWriteError, formatWriteError, isFsError } from "../core/errors.js";
 import {
   clearServerRecord,
-  defaultDataDir,
+  installedDataDir,
   legacyDataDir,
   LEGACY_NOTICE_FILE,
   liveServerRecord,
@@ -174,7 +174,7 @@ export type UninstallOptions = {
 export async function uninstallBusinessFinder(opts: UninstallOptions): Promise<number> {
   const platform = opts.platform ?? process.platform;
   const home = opts.home ?? homedir();
-  const dataDir = defaultDataDir(opts.env, platform, home);
+  const dataDir = installedDataDir(opts.env, platform, home);
   const oldDataDir = legacyDataDir(opts.env, platform, home);
   const jobsDir = path.join(dataDir, "jobs");
   const oldJobsDir = path.join(oldDataDir, "jobs");
