@@ -14,6 +14,7 @@ import {
   type Transport,
   type TransportResponse,
 } from "../src/core/enrich/safeFetch.js";
+import { VERSION } from "../src/version.js";
 
 const PUBLIC_IP = "93.184.216.34";
 
@@ -75,7 +76,7 @@ describe("safeFetch", () => {
     expect(result).toEqual({ ok: true, finalUrl: "https://shop.test/", html: "<p>hello</p>" });
     const page = transport.mock.calls.find(([url]) => url.pathname === "/")!;
     expect(page[1]).toEqual({ address: PUBLIC_IP, family: 4 });
-    expect(page[2].headers["user-agent"]).toBe("business-finder/0.1.0 (+https://github.com/kweiloo/business-finder)");
+    expect(page[2].headers["user-agent"]).toBe("business-finder/" + VERSION + " (+https://github.com/kweiloo/business-finder)");
   });
 
   it("refuses a host that resolves to a loopback address without connecting", async () => {

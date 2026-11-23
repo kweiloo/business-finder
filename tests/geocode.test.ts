@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { VERSION } from "../src/version.js";
 import { chooseHit, geocode, GeocodeUnavailableError, parseHits, placeLabel } from "../src/core/geo/geocode.js";
 import {
   type Capture,
@@ -93,7 +94,7 @@ describe("geocode", () => {
       format: "jsonv2", limit: "5", addressdetails: "1", q: "Melaka",
     });
     expect(new Headers(init?.headers).get("user-agent"))
-      .toBe("business-finder/0.1.0 (+https://github.com/kweiloo/business-finder)");
+      .toBe("business-finder/" + VERSION + " (+https://github.com/kweiloo/business-finder)");
   });
 
   it("returns null when no location matches", async () => {

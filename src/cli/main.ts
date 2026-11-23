@@ -838,7 +838,9 @@ function errorName(e: unknown): string {
 
 async function doctor(io: Io): Promise<number> {
   io.out(`business-finder ${VERSION}`);
-  ensureWritableDir(defaultDataDir(io.env));
+  const dataDir = defaultDataDir(io.env);
+  io.out(`  data: ${dataDir}`);
+  ensureWritableDir(dataDir);
   const found = findBrowser(io.env, existsSync, process.platform);
   try {
     const port = await probePort(DEFAULT_PORT);

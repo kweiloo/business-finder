@@ -23,7 +23,10 @@ export const HOST = "127.0.0.1";
 export const DEFAULT_PORT = 8080;
 
 /** The built web UI (`bun run build:web`), found relative to this source file. */
-export const WEB_DIST_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "web", "dist");
+const moduleDir = path.dirname(fileURLToPath(import.meta.url));
+export const WEB_DIST_DIR = path.basename(moduleDir) === "dist"
+  ? path.join(moduleDir, "web")
+  : path.resolve(moduleDir, "..", "..", "web", "dist");
 
 const NOT_BUILT_PAGE =
   "The Business Finder web UI has not been built yet. Run `bun run build:web` in the business-finder folder, then reload this page.\n";

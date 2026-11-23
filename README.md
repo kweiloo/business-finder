@@ -4,16 +4,30 @@ Find businesses on Google Maps: type a kind of business and a place, get a dedup
 (phone number, WhatsApp link, email, website, social links, rating) ready to download for Excel — whether you are
 looking for customers, stockists, suppliers or venues.
 
-## Install (Windows 10 / 11)
+[Download the latest Windows release](https://github.com/kweiloo/business-finder/releases/latest)
+
+## Install (Windows 10 / 11, x64)
 
 ### Option 1: From Codex or Claude Code (easiest)
 
-Needs **no Python or Node.js**.
+The Windows release includes its runtime. No Python or Node.js installation is required, and you do not need Git or Bun. Business Finder uses Microsoft Edge or Google Chrome and needs an internet connection for live searches.
 
-In **Codex** (or **Claude Code**), say what you want to find and where to get Business Finder, in one sentence:
+Open a new **Codex** chat on Windows and send this line:
 
 ```text
-Use github.com/kweiloo/business-finder to find event companies in Melaka
+Help me install Business Finder from https://github.com/kweiloo/business-finder
+```
+
+After Codex confirms that Business Finder is ready, send your search **in the same chat**:
+
+```text
+Use Business Finder to find event companies in Melaka, Malaysia.
+```
+
+You can also install and search in one message:
+
+```text
+Use https://github.com/kweiloo/business-finder to find event companies in Melaka, Malaysia.
 ```
 
 The agent tells you in one plain line before it starts:
@@ -22,40 +36,26 @@ The agent tells you in one plain line before it starts:
 
 It runs the installer (`install.ps1`) under your own approval settings, installs Business Finder, puts `business-finder` on your user
 PATH, and adds the user-level skill for Codex (`~\.agents\skills`) and Claude Code (`~\.claude\skills`) in one go.
-*(While the repository is private, Git needs to be logged into GitHub.)*
 
-Then it carries on with your request in the same chat: no restart and no new chat. Later, in any chat, ask in plain
-words, for example *open Business Finder* or *find event companies in Kuala Lumpur*.
+If Codex requests permission to run the Windows installer or access the browser, review the request in Codex. If its environment blocks local installation or browser access, use the PowerShell option below. The same prompts also work in Claude Code.
 
-*(For AI agents reading this repository: when asked to install Business Finder or its skill, follow `skills/business-finder/SKILL.md` under `## Installing` — say the single line above and run `install.ps1` right away so both the app and the user-level skills under `~\.agents\skills` and `~\.claude\skills` are installed. Never copy `SKILL.md` by hand, never run more than the installer, never use `$skill-installer`, never install into the current workspace, and never run from a clone.)*
+*(For AI agents opening this repository for the first time: read [the Business Finder skill](skills/business-finder/SKILL.md), then follow its installation and verification steps. Keep the installer result and command path in the current chat for the user's next request.)*
 
 ### Option 2: PowerShell one-liner
 
-Open **PowerShell** (press Start, type `PowerShell`, press Enter), paste this line and press Enter (once the repository is public):
+Open **Windows PowerShell** and run the release installer:
 
 ```powershell
-irm https://raw.githubusercontent.com/kweiloo/business-finder/main/install.ps1 | iex
+irm https://github.com/kweiloo/business-finder/releases/latest/download/install.ps1 | iex
 ```
 
-While the repository is private, if you have **Git** installed and logged into GitHub, run each command in PowerShell:
+You can also review and download `install.ps1` from [GitHub Releases](https://github.com/kweiloo/business-finder/releases) before running it. For a specific release or offline installation, download that release's Windows ZIP and run:
 
 ```powershell
-git clone https://github.com/kweiloo/business-finder.git "$env:TEMP\business-finder-install"
+powershell -ExecutionPolicy Bypass -File .\install.ps1 -PackagePath .\business-finder-windows-x64.zip
 ```
 
-```powershell
-powershell -ExecutionPolicy Bypass -File "$env:TEMP\business-finder-install\install.ps1"; Remove-Item -Recurse -Force "$env:TEMP\business-finder-install"
-```
-
-**No Git?** On GitHub, click **Code → Download ZIP**, extract the folder, open PowerShell inside that
-extracted folder and run:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\install.ps1
-```
-
-It takes about a minute. No administrator rights are needed, and nothing is installed outside your own user
-folder. When it is done, Business Finder opens in your browser and the last line tells you the address.
+No administrator rights are required. Business Finder installs for the current user and opens the local web UI.
 
 ### For developers
 
@@ -89,13 +89,12 @@ Your lists stay in the page, on the left.
 
 ## Using it from Codex or Claude Code
 
-After the install, Codex and Claude Code know Business Finder in any folder. Ask in
-plain words, for example:
+With the skill installed, ask Codex or Claude Code in plain words, for example:
 
 - *open Business Finder*
 - *find event companies in Kuala Lumpur*
 
-Codex runs the search and gives you a link to the list in the page. In Claude Code, `/business-finder` works the
+When the agent can access the local app, it can run the search and give you a link to the list. In Claude Code, `/business-finder` works the
 same way (`/business-finder event companies in Kuala Lumpur`).
 
 ## Update
@@ -117,7 +116,9 @@ asks before deleting your saved lists; press Enter to keep them.
 ## Troubleshooting
 
 - `business-finder` is not recognised: close PowerShell and open a new window, then try again.
-- Run `business-finder doctor` to check that Business Finder finds Microsoft Edge or Google Chrome, which it needs to search.
+- Run `business-finder doctor` to see the active data folder, local port status, and detected browser.
+- If an agent's sandbox blocks the browser, network, or local web UI, run `business-finder` from ordinary Windows PowerShell.
+- To use a separate writable data folder, set `$env:BUSINESS_FINDER_DATA_DIR` to its absolute path before running CLI commands or starting the web UI. Use the same value for both so they show the same lists. The default folder is unchanged and its lists are not copied into the override folder.
 - If the install stops, it says why in plain words. Check your internet connection and run the same command again.
 - If a run stops without finishing, ask Codex to run it again with the debug log on. If you run commands
   yourself, set `BUSINESS_FINDER_DEBUG_LOG` to a file path first:
@@ -136,3 +137,10 @@ the last lines show where it stopped. Nothing is logged when the variable is uns
 ## Licence
 
 MIT
+
+
+## Build and release
+
+Install dependencies with `bun install --frozen-lockfile`. Run `bun run typecheck` and `bun run test` to verify the source. On Windows x64, use a supported Node.js LTS distribution and run `scripts/package-windows.ps1` to create the ZIP and SHA-256 checksum under `dist`.
+
+The Windows package workflow builds and tests the installed ZIP for pull requests. A version tag matching `package.json` publishes the tested ZIP, checksum, and installer to GitHub Releases.

@@ -12,7 +12,7 @@
       "name": "business-finder",
       "source": "./",
       "description": "Find businesses on Google Maps from a CLI, a local web UI or an AI coding agent.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "license": "MIT",
       "strict": false,
       "skills": ["./skills/business-finder"],

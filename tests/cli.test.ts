@@ -511,7 +511,7 @@ describe("business-finder --version and leadscout alias", () => {
       expect(err[0]).toContain("Business Finder can't write to");
       expect(err[0]).toContain("business-finder");
       expect(err[0]).toContain("path is not a folder");
-      expect(err[0]).toContain("allow it to write to your user folder and try again.");
+      expect(err[0]).toContain("Choose a writable folder with BUSINESS_FINDER_DATA_DIR");
     }
   });
 
@@ -530,7 +530,7 @@ describe("business-finder --version and leadscout alias", () => {
           },
         },
       }),
-    ).rejects.toThrow(/Business Finder can't write to .*business-finder \(access denied\)\. If an AI agent is running this, allow it to write to your user folder and try again\./);
+    ).rejects.toThrow(/Business Finder can't write to .*business-finder \(access denied\)\. Choose a writable folder with BUSINESS_FINDER_DATA_DIR/);
   });
 
   it("reports plain messages for CancelledError and ReconciliationError instead of failed unexpectedly", async () => {

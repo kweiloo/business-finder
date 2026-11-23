@@ -44,10 +44,13 @@ describe("/business-finder slash command", () => {
 });
 
 describe("skill frontmatter", () => {
-  it("gives the same argument hint as the slash command and covers more than leads", () => {
+  it("uses portable skill metadata while keeping the argument hint on the Claude command", () => {
     const { fields } = readFrontmatter("skills/business-finder/SKILL.md");
     expect(fields.get("name")).toBe("business-finder");
-    expect(fields.get("argument-hint")).toBe("[business type] in [city]");
+    expect(fields.get("license")).toBe("MIT");
+    expect(fields.get("compatibility")).toContain("Windows");
+    expect(fields.has("argument-hint")).toBe(false);
+    expect(readFrontmatter(".claude/commands/business-finder.md").fields.get("argument-hint")).toBe("[business type] in [city]");
     const desc = fields.get("description") ?? "";
     expect(desc).toContain("customers");
     expect(desc).toContain("stockists");
@@ -84,13 +87,12 @@ describe("skill description", () => {
   });
 });
 
-describe("installing from a clone the agent made", () => {
+describe("installing a packaged release", () => {
   for (const path of ["skills/business-finder/SKILL.md", "AGENTS.md"]) {
-    it(`${path} says to install from that clone and then delete it`, () => {
+    it(`${path} uses the release installer without a source checkout`, () => {
       const body = readFileSync(join(root, path), "utf8").replace(/\s+/g, " ");
-      expect(body).toContain(
-        "If you cloned the repository yourself to inspect it, run `install.ps1` from that clone, then delete the clone.",
-      );
+      expect(body).toContain("https://github.com/kweiloo/business-finder/releases/latest/download/install.ps1");
+      expect(body).not.toMatch(/git clone|raw\.githubusercontent\.com/);
       expect(body).toContain("carry on with the user's original request **in this same chat**");
       expect(body).toContain("Never tell the user to restart Codex or to open a new chat before using Business Finder.");
     });
@@ -177,8 +179,7 @@ describe("first-run bootstrap and plugin marketplace", () => {
       const text = body();
       expect(text).not.toMatch(/do not search the disk for it or install it yourself/i);
       expect(text).not.toMatch(/tell the user so and stop/i);
-      const installMatch = raw().match(/^## Installing\n([\s\S]*?)(?:\n## |\s*$)/m);
-      const installSection = (installMatch?.[1] ?? "").replace(/\s+/g, " ");
+      const installSection = (raw().split("\n## Installing\n")[1]?.split("\n## ")[0] ?? "").replace(/\s+/g, " ");
       expect(installSection).not.toMatch(/wait for .*yes/i);
       expect(installSection).not.toMatch(/stop and ask first/i);
       expect(installSection).not.toMatch(/never install .* without one/i);
@@ -187,15 +188,7 @@ describe("first-run bootstrap and plugin marketplace", () => {
       );
       expect(text).toContain("Never run more than the installer");
       expect(text).toMatch(/do not copy `SKILL\.md` by hand/i);
-      expect(text).toContain("irm https://raw.githubusercontent.com/kweiloo/business-finder/main/install.ps1 | iex");
-      expect(text).not.toContain('powershell -ExecutionPolicy Bypass -Command "try {');
-      expect(text).toContain("https://github.com/kweiloo/business-finder.git");
-      expect(text).toContain("business-finder-install");
-      // The temporary clone is removed whether the install worked or not, and the
-      // installer's exit code still reaches the agent after that cleanup.
-      expect(text).toContain("finally { if (Test-Path $t) { Remove-Item -Recurse -Force $t } }");
-      expect(text).toContain("$c = $LASTEXITCODE } finally");
-      expect(text).toContain("if ($c) { exit $c }");
+      expect(installSection).toContain("irm https://github.com/kweiloo/business-finder/releases/latest/download/install.ps1 | iex");
       expect(text).toMatch(/exits 0 only when Business Finder is installed and running/);
       expect(text).toContain("install.ps1");
       expect(text).toContain("business-finder doctor");
@@ -236,7 +229,9 @@ describe("first-run bootstrap and plugin marketplace", () => {
     expect(devIdx).toBeGreaterThan(opt2Idx);
 
     const opt1 = readme.slice(opt1Idx, opt2Idx);
-    expect(opt1).toContain("Use github.com/kweiloo/business-finder to find event companies in Melaka");
+    expect(opt1).toContain("Help me install Business Finder from https://github.com/kweiloo/business-finder");
+    expect(opt1).toContain("Use Business Finder to find event companies in Melaka, Malaysia.");
+    expect(opt1).toContain("Use https://github.com/kweiloo/business-finder to find event companies in Melaka, Malaysia.");
     expect(opt1).toContain("in the same chat");
     expect(readme).not.toMatch(/restart(ing)? Codex once/i);
     expect(opt1).toMatch(/no Python or Node/i);
@@ -246,7 +241,7 @@ describe("first-run bootstrap and plugin marketplace", () => {
     expect(opt1).not.toMatch(/Say \*\*yes\*\*/i);
 
     const opt2 = readme.slice(opt2Idx, devIdx);
-    expect(opt2).toContain("irm https://raw.githubusercontent.com/kweiloo/business-finder/main/install.ps1 | iex");
+    expect(opt2).toContain("irm https://github.com/kweiloo/business-finder/releases/latest/download/install.ps1 | iex");
 
     const dev = readme.slice(devIdx);
     expect(dev).toContain("npx skills add kweiloo/business-finder");
@@ -256,10 +251,12 @@ describe("first-run bootstrap and plugin marketplace", () => {
 
   it("ships a Claude Code plugin marketplace listing business-finder", () => {
     const raw = readFileSync(join(root, ".claude-plugin/marketplace.json"), "utf8");
-    const manifest = JSON.parse(raw) as { name: string; plugins: Array<{ name: string; skills?: string[]; commands?: string[] }> };
+    const manifest = JSON.parse(raw) as { name: string; plugins: Array<{ name: string; version: string; skills?: string[]; commands?: string[] }> };
+    const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as { version: string };
     expect(manifest.name).toBe("business-finder");
     expect(manifest.plugins).toHaveLength(1);
     expect(manifest.plugins[0]?.name).toBe("business-finder");
+    expect(manifest.plugins[0]?.version).toBe(pkg.version);
     expect(manifest.plugins[0]?.skills).toContain("./skills/business-finder");
     expect(manifest.plugins[0]?.commands).toContain("./.claude/commands/business-finder.md");
   });

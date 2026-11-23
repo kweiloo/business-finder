@@ -44,7 +44,7 @@ export function isFsError(error: unknown): boolean {
 
 /** Plain message when Business Finder cannot create or write to a folder or file. */
 export function formatWriteError(targetPath: string, error: unknown): string {
-  return `Business Finder can't write to ${targetPath} (${plainOsReason(error)}). If an AI agent is running this, allow it to write to your user folder and try again.`;
+  return `Business Finder can't write to ${targetPath} (${plainOsReason(error)}). Choose a writable folder with BUSINESS_FINDER_DATA_DIR, or run Business Finder in PowerShell outside the restricted environment.`;
 }
 
 /**

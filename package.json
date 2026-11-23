@@ -1,6 +1,6 @@
 {
   "name": "business-finder",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Find businesses on Google Maps from a CLI, a local web UI or an AI coding agent.",
   "license": "MIT",
   "author": "kweiloo",
@@ -27,6 +27,7 @@
     "dev:serve": "bun --watch src/cli/main.ts serve --no-open --port 18080",
     "dev:web": "bun run --cwd web dev",
     "build:web": "bun install --cwd web --frozen-lockfile && bun run --cwd web build",
+    "build:release": "bun run build:web && bun build src/cli/main.ts --target=node --outfile dist/cli.js && bun build src/core/enrich/checkChild.ts --target=node --outfile dist/checkChild.js && bun scripts/copy-web-build.ts",
     "test:e2e": "playwright test"
   },
   "dependencies": {
