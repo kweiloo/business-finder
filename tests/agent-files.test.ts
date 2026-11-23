@@ -44,10 +44,13 @@ describe("/business-finder slash command", () => {
 });
 
 describe("skill frontmatter", () => {
-  it("gives the same argument hint as the slash command and covers more than leads", () => {
+  it("uses portable skill metadata while keeping the argument hint on the Claude command", () => {
     const { fields } = readFrontmatter("skills/business-finder/SKILL.md");
     expect(fields.get("name")).toBe("business-finder");
-    expect(fields.get("argument-hint")).toBe("[business type] in [city]");
+    expect(fields.get("license")).toBe("MIT");
+    expect(fields.get("compatibility")).toContain("Windows");
+    expect(fields.has("argument-hint")).toBe(false);
+    expect(readFrontmatter(".claude/commands/business-finder.md").fields.get("argument-hint")).toBe("[business type] in [city]");
     const desc = fields.get("description") ?? "";
     expect(desc).toContain("customers");
     expect(desc).toContain("stockists");
@@ -226,7 +229,9 @@ describe("first-run bootstrap and plugin marketplace", () => {
     expect(devIdx).toBeGreaterThan(opt2Idx);
 
     const opt1 = readme.slice(opt1Idx, opt2Idx);
-    expect(opt1).toContain("Use github.com/kweiloo/business-finder to find event companies in Melaka");
+    expect(opt1).toContain("Help me install Business Finder from https://github.com/kweiloo/business-finder");
+    expect(opt1).toContain("Use Business Finder to find event companies in Melaka, Malaysia.");
+    expect(opt1).toContain("Use https://github.com/kweiloo/business-finder to find event companies in Melaka, Malaysia.");
     expect(opt1).toContain("in the same chat");
     expect(readme).not.toMatch(/restart(ing)? Codex once/i);
     expect(opt1).toMatch(/no Python or Node/i);
@@ -246,10 +251,12 @@ describe("first-run bootstrap and plugin marketplace", () => {
 
   it("ships a Claude Code plugin marketplace listing business-finder", () => {
     const raw = readFileSync(join(root, ".claude-plugin/marketplace.json"), "utf8");
-    const manifest = JSON.parse(raw) as { name: string; plugins: Array<{ name: string; skills?: string[]; commands?: string[] }> };
+    const manifest = JSON.parse(raw) as { name: string; plugins: Array<{ name: string; version: string; skills?: string[]; commands?: string[] }> };
+    const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as { version: string };
     expect(manifest.name).toBe("business-finder");
     expect(manifest.plugins).toHaveLength(1);
     expect(manifest.plugins[0]?.name).toBe("business-finder");
+    expect(manifest.plugins[0]?.version).toBe(pkg.version);
     expect(manifest.plugins[0]?.skills).toContain("./skills/business-finder");
     expect(manifest.plugins[0]?.commands).toContain("./.claude/commands/business-finder.md");
   });

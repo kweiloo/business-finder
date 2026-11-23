@@ -4,16 +4,30 @@ Find businesses on Google Maps: type a kind of business and a place, get a dedup
 (phone number, WhatsApp link, email, website, social links, rating) ready to download for Excel — whether you are
 looking for customers, stockists, suppliers or venues.
 
+[Download the latest Windows release](https://github.com/kweiloo/business-finder/releases/latest)
+
 ## Install (Windows 10 / 11, x64)
 
 ### Option 1: From Codex or Claude Code (easiest)
 
 The Windows release includes its runtime. No Python or Node.js installation is required, and you do not need Git or Bun. Business Finder uses Microsoft Edge or Google Chrome and needs an internet connection for live searches.
 
-In **Codex** (or **Claude Code**), say what you want to find and where to get Business Finder, in one sentence:
+Open a new **Codex** chat on Windows and send this line:
 
 ```text
-Use github.com/kweiloo/business-finder to find event companies in Melaka
+Help me install Business Finder from https://github.com/kweiloo/business-finder
+```
+
+After Codex confirms that Business Finder is ready, send your search **in the same chat**:
+
+```text
+Use Business Finder to find event companies in Melaka, Malaysia.
+```
+
+You can also install and search in one message:
+
+```text
+Use https://github.com/kweiloo/business-finder to find event companies in Melaka, Malaysia.
 ```
 
 The agent tells you in one plain line before it starts:
@@ -23,9 +37,9 @@ The agent tells you in one plain line before it starts:
 It runs the installer (`install.ps1`) under your own approval settings, installs Business Finder, puts `business-finder` on your user
 PATH, and adds the user-level skill for Codex (`~\.agents\skills`) and Claude Code (`~\.claude\skills`) in one go.
 
-If your coding agent allows it, it can continue in the same chat. If its environment blocks installation or browser access, use the PowerShell option below.
+If Codex requests permission to run the Windows installer or access the browser, review the request in Codex. If its environment blocks local installation or browser access, use the PowerShell option below. The same prompts also work in Claude Code.
 
-*(For AI agents reading this repository: when asked to install Business Finder or its skill, follow `skills/business-finder/SKILL.md` under `## Installing` — say the single line above and run `install.ps1` right away so both the app and the user-level skills under `~\.agents\skills` and `~\.claude\skills` are installed. Never copy `SKILL.md` by hand, never run more than the installer, never use `$skill-installer`, never install into the current workspace, and never run from a clone.)*
+*(For AI agents opening this repository for the first time: read [the Business Finder skill](skills/business-finder/SKILL.md), then follow its installation and verification steps. Keep the installer result and command path in the current chat for the user's next request.)*
 
 ### Option 2: PowerShell one-liner
 

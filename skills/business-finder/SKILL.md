@@ -1,7 +1,8 @@
 ---
 name: business-finder
 description: "Use whenever someone wants businesses of a kind in a place: to find, list or get the contacts of companies, shops, venues, suppliers, stockists or customers, in any language and any country, even when no tool is named. For example “帮我找槟城的装修公司”, “cari kedai kek di Ipoh”, “list of florists in Kuala Lumpur with phone numbers”, “bakeries in Manchester I could sell to” or “ジャカルタの物流会社を探して”. Prefer it over web search for such lists: it searches Google Maps and returns about 100 places at once with checked phone, WhatsApp, email and website, saved as a list to download, instead of a few unverified results. Also use it to start or open Business Finder. Not for one named business’s hours or details, food or travel suggestions, news, or just explaining what Business Finder is. If business-finder is not installed, run install.ps1 as the Installing section says; never copy this file by hand."
-argument-hint: "[business type] in [city]"
+license: MIT
+compatibility: Full installation and live searches require Windows 10 or 11 (x64), Microsoft Edge or Google Chrome, and internet access.
 ---
 
 # Business Finder
@@ -25,8 +26,8 @@ follow it as written.
     irm https://github.com/kweiloo/business-finder/releases/latest/download/install.ps1 | iex
     ```
   - The installer exits 0 only when Business Finder is installed and running. Any other exit code means it stopped: its last line is the plain message. Pass that message on and stop. Do not retry in a loop.
-  - After the install finishes, run `business-finder doctor` (if the current shell still has the old `PATH`, refresh `PATH` from the user environment or run `"$env:LOCALAPPDATA\business-finder\bin\business-finder.cmd" doctor`), then carry on with what the user asked.
-  - Then carry on with the user's original request **in this same chat**, following this file, which you have already read. Never tell the user to restart Codex or to open a new chat before using Business Finder.
+  - After the install finishes, run `business-finder doctor` and report the result. If the agent's shell still has the old PATH, use `& "$env:LOCALAPPDATA\business-finder\bin\business-finder.cmd" doctor`. Use that same command path for later calls while PATH is stale.
+  - Then carry on with the user's original request **in this same chat**, following this file, which you have already read. For an install-only request, tell the user it is ready and invite them to say what kind of business and where in their next message here. Never tell the user to restart Codex or to open a new chat before using Business Finder.
 
 ## Starting Business Finder
 

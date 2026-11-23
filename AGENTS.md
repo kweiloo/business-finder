@@ -21,8 +21,8 @@ user. In Claude Code, `/business-finder` starts it and
     irm https://github.com/kweiloo/business-finder/releases/latest/download/install.ps1 | iex
     ```
   - The installer exits 0 only when Business Finder is installed and running. Any other exit code means it stopped: its last line is the plain message. Pass that message on and stop. Do not retry in a loop.
-  - After the install finishes, run `business-finder doctor` (if the current shell still has the old `PATH`, refresh `PATH` from the user environment or run `"$env:LOCALAPPDATA\business-finder\bin\business-finder.cmd" doctor`), then carry on with what the user asked.
-  - Then carry on with the user's original request **in this same chat**, following this file, which you have already read. Never tell the user to restart Codex or to open a new chat before using Business Finder.
+  - After the install finishes, run `business-finder doctor` and report the result. If the agent's shell still has the old PATH, use `& "$env:LOCALAPPDATA\business-finder\bin\business-finder.cmd" doctor`. Use that same command path for later calls while PATH is stale.
+  - Then carry on with the user's original request **in this same chat**, following this file, which you have already read. For an install-only request, tell the user it is ready and invite them to say what kind of business and where in their next message here. Never tell the user to restart Codex or to open a new chat before using Business Finder.
 
 ## Starting Business Finder
 
