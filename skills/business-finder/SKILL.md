@@ -26,7 +26,7 @@ follow it as written.
     irm https://github.com/kweiloo/business-finder/releases/latest/download/install.ps1 | iex
     ```
   - The installer exits 0 only when Business Finder is installed and running. Any other exit code means it stopped: its last line is the plain message. Pass that message on and stop. Do not retry in a loop.
-  - After the install finishes, run `business-finder doctor` and report the result. If the agent's shell still has the old PATH, use `& "$env:LOCALAPPDATA\business-finder\bin\business-finder.cmd" doctor`. Use that same command path for later calls while PATH is stale.
+  - After the install finishes, run `business-finder doctor` and report the result. If PATH is stale, use the absolute path printed after `Business Finder command:` with PowerShell’s call operator `&`. Keep using that path for later commands while PATH is stale. Run follow-up commands in the same Windows environment as the installer so the CLI and web UI share saved lists.
   - Then carry on with the user's original request **in this same chat**, following this file, which you have already read. For an install-only request, tell the user it is ready and invite them to say what kind of business and where in their next message here. Never tell the user to restart Codex or to open a new chat before using Business Finder.
 
 ## Starting Business Finder

@@ -545,6 +545,8 @@ function Invoke-BusinessFinderInstall {
         Update-BusinessFinderUserPath -AddEntry $binDir -RemoveEntry $legacyBinDir
     }
 
+    Write-Output "Business Finder command: $shimPath"
+
     # 5. Global Codex and Claude Code skills (replace only the leadscout skill we installed)
     $skillSrc = Join-Path $appDir "skills\business-finder\SKILL.md"
     if (Test-Path $skillSrc) {

@@ -26,8 +26,13 @@ function Install-TestPackage {
     $env:BUSINESS_FINDER_FIXTURE = $fixture
     # Only doctor checks this in fixture mode. Use a known executable for that presence check.
     $env:BUSINESS_FINDER_CHROME = Join-Path $env:SystemRoot "System32\cmd.exe"
-    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installer -PackagePath $package -NoOpen
-    if ($LASTEXITCODE -ne 0) { throw "Package installer exited $LASTEXITCODE." }
+    $messages = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installer -PackagePath $package -NoOpen
+    $code = $LASTEXITCODE
+    $messages | Write-Output
+    if ($code -ne 0) { throw "Package installer exited $code." }
+    if ($messages -notcontains "Business Finder command: $shim") {
+        throw "The installer did not print the absolute command path for later calls."
+    }
     $server = Get-Content -LiteralPath $recordPath -Raw | ConvertFrom-Json
     $page = Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:$($server.port)/"
     if ($page.StatusCode -ne 200 -or $page.Content -notmatch '/assets/[^"]+\.js') {
